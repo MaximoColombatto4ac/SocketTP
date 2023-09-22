@@ -66,26 +66,15 @@ public class Cliente {
             // Hilo para recibir mensajes del servidor
             Thread hiloRecibirMensajes = new Thread(() -> {
                 try {
+                    Signature publicSignature = Signature.getInstance("SHA256withRSA");
+                    publicSignature.initVerify(cliente.pairKeys.PublicKey);
 
-                    Cipher c = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-                    Cipher c2 = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-
-                    c2.init(Cipher.DECRYPT_MODE, cliente.pairKeys.PrivateKey);
-                    c.init(Cipher.DECRYPT_MODE, cliente.claveServidor);
 
                     String llegada;
-
                     while ((llegada = lector.readLine()) != null) {
 
-                        String[] mensajeMasFirma = llegada.split(Encriptacion.delimitadorCodificado);
-
-                      /*  String mensaje = new String(c2.doFinal(mensajeMasFirma[0].getBytes()));
-                        String firma = new String(c.doFinal(mensajeMasFirma[1].getBytes()));
-                        String nombreOrigen = mensajeMasFirma[2];*/
-
-                      /*  if (Encriptacion.hashearMensaje(mensaje).equals(firma)){*/
-                            System.out.println(mensajeMasFirma[0]);
-                        /*}*/
+                            String mensaje = Encriptacion.descifrarMensaje(llegada,cliente.pairKeys.PrivateKey,publicSignature);
+                            System.out.println(mensaje);
 
                     }
                 } catch (IOException e) {
@@ -106,14 +95,15 @@ public class Cliente {
             Thread hiloEnviarMensajes = new Thread(() -> {
                 try {
 
+                    Signature privateSignature = Signature.getInstance("SHA256withRSA");
+                    privateSignature.initSign(cliente.pairKeys.PrivateKey);
+
                     String mensajeUsuario;
                     while ((mensajeUsuario = lectorConsola.readLine()) != null) {
                         Cipher c = Cipher.getInstance("RSA/ECB/PKCS1Padding");
                         c.init(Cipher.ENCRYPT_MODE, cliente.claveServidor);
                         byte[] mensajeCifrado = c.doFinal(mensajeUsuario.getBytes());
 
-                        Signature privateSignature = Signature.getInstance("SHA256withRSA");
-                        privateSignature.initSign(cliente.pairKeys.PrivateKey);
                         privateSignature.update(mensajeUsuario.getBytes(StandardCharsets.UTF_8));
 
                         byte[] firma = privateSignature.sign();

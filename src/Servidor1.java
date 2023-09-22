@@ -13,6 +13,7 @@ import java.security.Signature;
 import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
 
 public class Servidor1 {
@@ -103,22 +104,33 @@ public class Servidor1 {
             try {
 
                 Cipher c2 = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-                c2.init(Cipher.DECRYPT_MODE, Servidor1.this.pairKeys.PrivateKey);
+                c2.init(Cipher.ENCRYPT_MODE, claveCLiente);
 
                 Signature publicSignature = Signature.getInstance("SHA256withRSA");
                 publicSignature.initVerify(claveCLiente);
+
+                Signature privateSignature = Signature.getInstance("SHA256withRSA");
+                privateSignature.initSign(Servidor1.this.pairKeys.PrivateKey);
+
+
+
+
 
                 // Establece flujos de entrada y salida para la comunicación con el cliente
                 escritor = new PrintWriter(socketCliente.getOutputStream(), true);
                 lector = new BufferedReader(new InputStreamReader(socketCliente.getInputStream()));
 
+
+                String mens = "";
+
+
                 // Solicita al cliente que ingrese su nombre de usuario
-                escritor.println("Ingresa tu nombre de usuario:");
+                escritor.println(Encriptacion.encriptarMensaje(c2, privateSignature,"Ingresa tu nombre de usuario:"));
                 nombreUsuario = lector.readLine();
-                nombreUsuario = Encriptacion.descifrarMensaje(nombreUsuario,c2,publicSignature);
+                nombreUsuario = Encriptacion.descifrarMensaje(nombreUsuario,Servidor1.this.pairKeys.PrivateKey,publicSignature);
                 System.out.println("Nuevo usuario conectado: " + nombreUsuario);
 
-                escritor.println("elija un usuario:");
+                escritor.println(Encriptacion.encriptarMensaje(c2, privateSignature,"elija un usuario:"));
 
                 for (ClienteHandler cliente : Servidor1.this.listaClientes) {
                     if (!cliente.nombreUsuario.equals(this.nombreUsuario)) {
@@ -126,22 +138,24 @@ public class Servidor1 {
                     }
                 }
                 String usuario = lector.readLine();
-                usuario = Encriptacion.descifrarMensaje(usuario,c2,publicSignature);
-                System.out.println("chat con: " + usuario);
+                usuario = Encriptacion.descifrarMensaje(usuario,Servidor1.this.pairKeys.PrivateKey,publicSignature);
+                mens = "chat con: " + usuario;
+                escritor.println(Encriptacion.encriptarMensaje(c2, privateSignature,mens));
+
+
+
+
 
                 String llegada;
                 while ((llegada = lector.readLine()) != null ) {
-                    String mensaje = Encriptacion.descifrarMensaje(llegada,c2,publicSignature);
+                    String mensaje = Encriptacion.descifrarMensaje(llegada,Servidor1.this.pairKeys.PrivateKey,publicSignature);
                         for (ClienteHandler cliente : listaClientes) {
+
                             if (cliente.nombreUsuario.equals(usuario)) {
-
                                 c2.init(Cipher.ENCRYPT_MODE, cliente.claveCLiente);
+                                privateSignature.update(mensaje.getBytes(StandardCharsets.UTF_8));
 
-                                byte[] mensajeCifrado = c2.doFinal(mensaje.getBytes());
-
-                                mensaje = new String(mensajeCifrado);
-
-                                cliente.escritor.print(mensaje + Encriptacion.delimitadorCodificado);
+                                cliente.escritor.print(Encriptacion.encriptarMensaje(c2,privateSignature, mensaje));
                             }
                         }
                 }

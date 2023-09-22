@@ -41,7 +41,9 @@ public class Encriptacion {
             throw new Exception("Error al hashear el mensaje", e);
         }
     }
-    public static String descifrarMensaje(String llegada, Cipher c, Signature sig1) throws Exception {
+    public static String descifrarMensaje(String llegada, PrivateKey pv, Signature sig1) throws Exception {
+            Cipher c = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+            c.init(Cipher.DECRYPT_MODE, pv);
             String[] mensajeMasFirma = llegada.split(Encriptacion.delimitadorCodificado);
             sig1.update(mensajeMasFirma[0].getBytes());
             String mensaje = new String(c.doFinal(Base64.getDecoder().decode(mensajeMasFirma[0].getBytes())));
@@ -50,5 +52,11 @@ public class Encriptacion {
             }else {
                 return mensaje;
             }
+    }
+    public static String encriptarMensaje(Cipher c, Signature s, String llegada) throws IllegalBlockSizeException, BadPaddingException, SignatureException {
+        byte[] mensajeCifrado = c.doFinal(llegada.getBytes());
+        byte[] firma = s.sign();
+        String encript = new String(Base64.getEncoder().encode(mensajeCifrado)) + Encriptacion.delimitadorCodificado + new String(Base64.getEncoder().encode(firma));
+        return encript;
     }
 }
