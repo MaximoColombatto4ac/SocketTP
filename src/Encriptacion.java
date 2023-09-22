@@ -41,14 +41,12 @@ public class Encriptacion {
             throw new Exception("Error al hashear el mensaje", e);
         }
     }
-    public static String descifrarMensaje(String llegada, Cipher c, Cipher c2) throws Exception {
-
+    public static String descifrarMensaje(String llegada, Cipher c, Signature sig1) throws Exception {
             String[] mensajeMasFirma = llegada.split(Encriptacion.delimitadorCodificado);
-
-            String mensaje = new String(c2.doFinal(mensajeMasFirma[0].getBytes()));
-            String firma = new String(c.doFinal(mensajeMasFirma[1].getBytes()));
-            if (!Encriptacion.hashearMensaje(mensaje).equals(firma)){
-                throw new Exception("modoficacion!!");
+            sig1.update(mensajeMasFirma[0].getBytes());
+            String mensaje = new String(c.doFinal(Base64.getDecoder().decode(mensajeMasFirma[0].getBytes())));
+            if (sig1.verify(Base64.getDecoder().decode(mensajeMasFirma[1].getBytes()))){
+                throw new Exception("modificacion!!");
             }else {
                 return mensaje;
             }

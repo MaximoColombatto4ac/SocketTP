@@ -4,13 +4,12 @@ import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import java.io.*;
 import java.net.Socket;
-import java.security.InvalidKeyException;
-import java.security.KeyFactory;
-import java.security.NoSuchAlgorithmException;
-import java.security.PublicKey;
+import java.nio.charset.StandardCharsets;
+import java.security.*;
 import java.security.spec.EncodedKeySpec;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
+import java.util.Base64;
 
 public class Cliente {
     private static final long TIEMPO_ENTRE_MENSAJES = 3000; // 3 segundos de espera para evitar spam
@@ -106,25 +105,20 @@ public class Cliente {
             // Hilo para enviar mensajes al servidor
             Thread hiloEnviarMensajes = new Thread(() -> {
                 try {
-                    Cipher c = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-                    Cipher c2 = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-
-                    c2.init(Cipher.ENCRYPT_MODE, cliente.pairKeys.PrivateKey);
-                    c.init(Cipher.ENCRYPT_MODE, cliente.claveServidor);
 
                     String mensajeUsuario;
-                    String firmaString;
-
                     while ((mensajeUsuario = lectorConsola.readLine()) != null) {
-
+                        Cipher c = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+                        c.init(Cipher.ENCRYPT_MODE, cliente.claveServidor);
                         byte[] mensajeCifrado = c.doFinal(mensajeUsuario.getBytes());
 
-                        byte[] firma = c2.doFinal(Encriptacion.hashearMensaje(mensajeUsuario).getBytes());
+                        Signature privateSignature = Signature.getInstance("SHA256withRSA");
+                        privateSignature.initSign(cliente.pairKeys.PrivateKey);
+                        privateSignature.update(mensajeUsuario.getBytes(StandardCharsets.UTF_8));
 
-                        firmaString = new String(firma);
-                        mensajeUsuario = new String(mensajeCifrado);
+                        byte[] firma = privateSignature.sign();
 
-                        escritor.println(mensajeUsuario + Encriptacion.delimitadorCodificado + firmaString);
+                        escritor.println(new String(Base64.getEncoder().encode(mensajeCifrado))+ Encriptacion.delimitadorCodificado + new String(Base64.getEncoder().encode(firma)));
 
                         Thread.sleep(TIEMPO_ENTRE_MENSAJES); // Esperar para evitar enviar mensajes muy rápido
                     }

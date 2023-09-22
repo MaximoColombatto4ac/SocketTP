@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
+import java.security.Signature;
 import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -101,11 +102,11 @@ public class Servidor1 {
         public void run() {
             try {
 
-                Cipher c = Cipher.getInstance("RSA/ECB/PKCS1Padding");
                 Cipher c2 = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-
                 c2.init(Cipher.DECRYPT_MODE, Servidor1.this.pairKeys.PrivateKey);
-                c.init(Cipher.DECRYPT_MODE, claveCLiente);
+
+                Signature publicSignature = Signature.getInstance("SHA256withRSA");
+                publicSignature.initVerify(claveCLiente);
 
                 // Establece flujos de entrada y salida para la comunicación con el cliente
                 escritor = new PrintWriter(socketCliente.getOutputStream(), true);
@@ -114,7 +115,7 @@ public class Servidor1 {
                 // Solicita al cliente que ingrese su nombre de usuario
                 escritor.println("Ingresa tu nombre de usuario:");
                 nombreUsuario = lector.readLine();
-                nombreUsuario = Encriptacion.descifrarMensaje(nombreUsuario,c,c2);
+                nombreUsuario = Encriptacion.descifrarMensaje(nombreUsuario,c2,publicSignature);
                 System.out.println("Nuevo usuario conectado: " + nombreUsuario);
 
                 escritor.println("elija un usuario:");
@@ -124,28 +125,23 @@ public class Servidor1 {
                         escritor.println(cliente.nombreUsuario);
                     }
                 }
-
-
                 String usuario = lector.readLine();
-                usuario = Encriptacion.descifrarMensaje(usuario,c,c2);
+                usuario = Encriptacion.descifrarMensaje(usuario,c2,publicSignature);
+                System.out.println("chat con: " + usuario);
 
                 String llegada;
                 while ((llegada = lector.readLine()) != null ) {
-
-                    String mensaje = Encriptacion.descifrarMensaje(llegada, c, c2);
+                    String mensaje = Encriptacion.descifrarMensaje(llegada,c2,publicSignature);
                         for (ClienteHandler cliente : listaClientes) {
                             if (cliente.nombreUsuario.equals(usuario)) {
 
                                 c2.init(Cipher.ENCRYPT_MODE, cliente.claveCLiente);
-                                c.init(Cipher.ENCRYPT_MODE, Servidor1.this.pairKeys.PrivateKey);
 
-                                byte[] mensajeCifrado = c.doFinal(mensaje.getBytes());
-                                byte[] firmaByte = c2.doFinal(Encriptacion.hashearMensaje(mensaje).getBytes());
+                                byte[] mensajeCifrado = c2.doFinal(mensaje.getBytes());
 
                                 mensaje = new String(mensajeCifrado);
-                                String firma = new String(firmaByte);
 
-                                cliente.escritor.print(mensaje + Encriptacion.delimitadorCodificado + firma + Encriptacion.delimitadorCodificado + nombreUsuario);
+                                cliente.escritor.print(mensaje + Encriptacion.delimitadorCodificado);
                             }
                         }
                 }
