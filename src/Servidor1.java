@@ -1,28 +1,25 @@
-import javax.crypto.BadPaddingException;
-import javax.crypto.Cipher;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
+import javax.crypto.*;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.security.PublicKey;
-import java.security.Signature;
+import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 
+
 public class Servidor1 {
     private ServerSocket servidorSocket;
     private static List<ClienteHandler> listaClientes;
     private RSA pairKeys;
+    public SecretKey key;
 
     public Servidor1() throws NoSuchPaddingException, IllegalBlockSizeException, NoSuchAlgorithmException, BadPaddingException, IOException, InvalidKeyException {
-        this.pairKeys = Encriptacion.generarClaves();
+        this.pairKeys = Encriptacion.generarClavesAsimetricas();
+        this.key = Encriptacion.generarClaveSimetrica();
     }
 
     public RSA getPairKeys() {
@@ -55,11 +52,18 @@ public class Servidor1 {
                 // Crea un manejador de cliente para manejar las interacciones con este cliente
                 ClienteHandler clienteHandler = new ClienteHandler(socketCliente);
 
+                DataOutputStream dOut = new DataOutputStream(socketCliente.getOutputStream());
+
+                Signature privateSignature = Signature.getInstance("SHA256withRSA");
+                privateSignature.initSign(Servidor1.this.pairKeys.PrivateKey);
 
                 //enviamos clave publica
-                DataOutputStream dOut = new DataOutputStream(socketCliente.getOutputStream());
                 Encriptacion.enviarClavePublica(pairKeys.PublicKey.getEncoded(),dOut);
 
+                //enviamos clave simetrica
+                Cipher encriptador = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+                encriptador.init(Cipher.ENCRYPT_MODE, clienteHandler.claveCLiente);
+                Encriptacion.enviarClaveSimetrica(key,dOut,encriptador,privateSignature);
 
 
                 listaClientes.add(clienteHandler);
@@ -70,6 +74,16 @@ public class Servidor1 {
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         } catch (InvalidKeySpecException e) {
+            throw new RuntimeException(e);
+        } catch (NoSuchPaddingException e) {
+            throw new RuntimeException(e);
+        } catch (InvalidKeyException e) {
+            throw new RuntimeException(e);
+        } catch (IllegalBlockSizeException e) {
+            throw new RuntimeException(e);
+        } catch (BadPaddingException e) {
+            throw new RuntimeException(e);
+        } catch (SignatureException e) {
             throw new RuntimeException(e);
         } finally {
             // Cierra el socket del servidor al finalizar
@@ -91,6 +105,7 @@ public class Servidor1 {
         private String nombreUsuario;
         public PublicKey claveCLiente;
 
+
         public ClienteHandler(Socket socket) throws IOException, NoSuchAlgorithmException, InvalidKeySpecException {
             socketCliente = socket;
             claveCLiente = setearClave();
@@ -105,6 +120,7 @@ public class Servidor1 {
 
                 Cipher c2 = Cipher.getInstance("RSA/ECB/PKCS1Padding");
                 c2.init(Cipher.ENCRYPT_MODE, claveCLiente);
+                Cipher c3 = Cipher.getInstance("RSA/ECB/PKCS1Padding");
 
                 Signature publicSignature = Signature.getInstance("SHA256withRSA");
                 publicSignature.initVerify(claveCLiente);
@@ -149,13 +165,12 @@ public class Servidor1 {
                 String llegada;
                 while ((llegada = lector.readLine()) != null ) {
                     String mensaje = Encriptacion.descifrarMensaje(llegada,Servidor1.this.pairKeys.PrivateKey,publicSignature);
+                    System.out.println(mensaje);
                         for (ClienteHandler cliente : listaClientes) {
 
                             if (cliente.nombreUsuario.equals(usuario)) {
-                                c2.init(Cipher.ENCRYPT_MODE, cliente.claveCLiente);
-                                privateSignature.update(mensaje.getBytes(StandardCharsets.UTF_8));
-
-                                cliente.escritor.print(Encriptacion.encriptarMensaje(c2,privateSignature, mensaje));
+                                c3.init(Cipher.ENCRYPT_MODE, cliente.claveCLiente);
+                                cliente.escritor.println(Encriptacion.encriptarMensaje(c2,privateSignature, mensaje));
                             }
                         }
                 }

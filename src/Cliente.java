@@ -12,13 +12,13 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 
 public class Cliente {
-    private static final long TIEMPO_ENTRE_MENSAJES = 15; // 3 segundos de espera para evitar spam
+    private static final long TIEMPO_ENTRE_MENSAJES = 3000; // 3 segundos de espera para evitar spam
     private RSA pairKeys;
 
     public PublicKey claveServidor;
 
     public Cliente() throws NoSuchPaddingException, IllegalBlockSizeException, NoSuchAlgorithmException, BadPaddingException, IOException, InvalidKeyException {
-        this.pairKeys = Encriptacion.generarClaves();
+        this.pairKeys = Encriptacion.generarClavesAsimetricas();
         this.claveServidor = null;
     }
 
@@ -61,6 +61,11 @@ public class Cliente {
             //recibimos la clave publica del servidor
             DataInputStream dIn = new DataInputStream(socket.getInputStream());
             cliente.setClaveServidor(Encriptacion.recibirCLavePublica(dIn));
+
+            //recibimos la clave simetrica
+            Cipher desencriptador = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+            desencriptador.init(Cipher.DECRYPT_MODE, cliente.pairKeys.PrivateKey);
+            Encriptacion.recibirClaveSimetrica(dIn,cliente.pairKeys.PrivateKey,);
 
 
             // Hilo para recibir mensajes del servidor
