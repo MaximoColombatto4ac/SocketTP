@@ -67,13 +67,15 @@ public class Cliente {
             Thread hiloRecibirMensajes = new Thread(() -> {
                 try {
                     Signature publicSignature = Signature.getInstance("SHA256withRSA");
-                    publicSignature.initVerify(cliente.pairKeys.PublicKey);
+                    publicSignature.initVerify(cliente.getClaveServidor());
+                    Cipher desencriptador = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+                    desencriptador.init(Cipher.DECRYPT_MODE, cliente.pairKeys.PrivateKey);
 
 
                     String llegada;
                     while ((llegada = lector.readLine()) != null) {
 
-                            String mensaje = Encriptacion.descifrarMensaje(llegada,cliente.pairKeys.PrivateKey,publicSignature);
+                            String mensaje = Encriptacion.descifrarMensaje(llegada,desencriptador,publicSignature);
                             System.out.println(mensaje);
 
                     }
@@ -98,13 +100,9 @@ public class Cliente {
                     while ((mensajeUsuario = lectorConsola.readLine()) != null) {
                         Cipher c = Cipher.getInstance("RSA/ECB/PKCS1Padding");
                         c.init(Cipher.ENCRYPT_MODE, cliente.claveServidor);
-                        byte[] mensajeCifrado = c.doFinal(mensajeUsuario.getBytes());
-
                         privateSignature.update(mensajeUsuario.getBytes(StandardCharsets.UTF_8));
 
-                        byte[] firma = privateSignature.sign();
-
-                        escritor.println(new String(Base64.getEncoder().encode(mensajeCifrado))+ Encriptacion.delimitadorCodificado + new String(Base64.getEncoder().encode(firma)));
+                        escritor.println(Encriptacion.encriptarMensaje(c,privateSignature,mensajeUsuario));
 
                         Thread.sleep(TIEMPO_ENTRE_MENSAJES); // Esperar para evitar enviar mensajes muy rápido
                     }

@@ -56,6 +56,12 @@ public class Servidor1 {
                 ClienteHandler clienteHandler = new ClienteHandler(socketCliente);
 
 
+
+
+
+
+
+
                 //enviamos clave publica
                 DataOutputStream dOut = new DataOutputStream(socketCliente.getOutputStream());
                 Encriptacion.enviarClavePublica(pairKeys.PublicKey.getEncoded(),dOut);
@@ -102,15 +108,17 @@ public class Servidor1 {
 
         public void run() {
             try {
+                Cipher encriptador = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+                encriptador.init(Cipher.ENCRYPT_MODE, claveCLiente);
 
-                Cipher c2 = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-                c2.init(Cipher.ENCRYPT_MODE, claveCLiente);
-
-                Signature publicSignature = Signature.getInstance("SHA256withRSA");
-                publicSignature.initVerify(claveCLiente);
+                Cipher desencriptador = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+                desencriptador.init(Cipher.DECRYPT_MODE, Servidor1.this.pairKeys.PrivateKey);
 
                 Signature privateSignature = Signature.getInstance("SHA256withRSA");
                 privateSignature.initSign(Servidor1.this.pairKeys.PrivateKey);
+
+                Signature publicSignature = Signature.getInstance("SHA256withRSA");
+                publicSignature.initVerify(claveCLiente);
 
 
 
@@ -125,37 +133,34 @@ public class Servidor1 {
 
 
                 // Solicita al cliente que ingrese su nombre de usuario
-                escritor.println(Encriptacion.encriptarMensaje(c2, privateSignature,"Ingresa tu nombre de usuario:"));
+                escritor.println(Encriptacion.encriptarMensaje(encriptador, privateSignature,"Ingresa tu nombre de usuario:"));
                 nombreUsuario = lector.readLine();
-                nombreUsuario = Encriptacion.descifrarMensaje(nombreUsuario,Servidor1.this.pairKeys.PrivateKey,publicSignature);
+                nombreUsuario = Encriptacion.descifrarMensaje(nombreUsuario, desencriptador, publicSignature);
                 System.out.println("Nuevo usuario conectado: " + nombreUsuario);
 
-                escritor.println(Encriptacion.encriptarMensaje(c2, privateSignature,"elija un usuario:"));
+                escritor.println(Encriptacion.encriptarMensaje(encriptador, privateSignature,"elija un usuario:"));
 
-                for (ClienteHandler cliente : Servidor1.this.listaClientes) {
+                for (ClienteHandler cliente : listaClientes) {
                     if (!cliente.nombreUsuario.equals(this.nombreUsuario)) {
                         escritor.println(cliente.nombreUsuario);
                     }
                 }
                 String usuario = lector.readLine();
-                usuario = Encriptacion.descifrarMensaje(usuario,Servidor1.this.pairKeys.PrivateKey,publicSignature);
+                usuario = Encriptacion.descifrarMensaje(usuario,desencriptador, publicSignature);
                 mens = "chat con: " + usuario;
-                escritor.println(Encriptacion.encriptarMensaje(c2, privateSignature,mens));
-
-
-
-
-
+                escritor.println(Encriptacion.encriptarMensaje(encriptador, privateSignature,mens));
                 String llegada;
+
                 while ((llegada = lector.readLine()) != null ) {
-                    String mensaje = Encriptacion.descifrarMensaje(llegada,Servidor1.this.pairKeys.PrivateKey,publicSignature);
+                    String mensaje = Encriptacion.descifrarMensaje(llegada,desencriptador,publicSignature);
                         for (ClienteHandler cliente : listaClientes) {
 
                             if (cliente.nombreUsuario.equals(usuario)) {
-                                c2.init(Cipher.ENCRYPT_MODE, cliente.claveCLiente);
+                                Cipher encriptador2 = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+                                encriptador2.init(Cipher.ENCRYPT_MODE, cliente.claveCLiente);
                                 privateSignature.update(mensaje.getBytes(StandardCharsets.UTF_8));
 
-                                cliente.escritor.print(Encriptacion.encriptarMensaje(c2,privateSignature, mensaje));
+                                cliente.escritor.println(Encriptacion.encriptarMensaje(encriptador2,privateSignature, mensaje));
                             }
                         }
                 }
