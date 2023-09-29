@@ -79,11 +79,7 @@ public class Cliente {
                     }
                 } catch (IOException e) {
                     e.printStackTrace();
-                } catch (NoSuchPaddingException e) {
-                    throw new RuntimeException(e);
-                } catch (NoSuchAlgorithmException e) {
-                    throw new RuntimeException(e);
-                } catch (InvalidKeyException e) {
+                } catch (NoSuchPaddingException | NoSuchAlgorithmException | InvalidKeyException e) {
                     throw new RuntimeException(e);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
