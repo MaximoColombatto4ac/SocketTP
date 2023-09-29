@@ -12,7 +12,7 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 
 public class Cliente {
-    private static final long TIEMPO_ENTRE_MENSAJES = 3000; // 3 segundos de espera para evitar spam
+    private static final long TIEMPO_ENTRE_MENSAJES = 15; // 3 segundos de espera para evitar spam
     private RSA pairKeys;
 
     public PublicKey claveServidor;
