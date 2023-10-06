@@ -17,38 +17,29 @@ public class Cliente {
     private RSA pairKeys;
     private PublicKey claveServidor;
     private Key claveSimetrica;
-
-
     public Cliente() throws NoSuchPaddingException, IllegalBlockSizeException, NoSuchAlgorithmException, BadPaddingException, IOException, InvalidKeyException {
         this.pairKeys = Encriptacion.generarClaves();
         this.claveServidor = null;
         this.claveSimetrica = null;
     }
-
     public Key getClaveSimetrica() {
         return claveSimetrica;
     }
-
     public void setClaveSimetrica(Key claveSimetrica) {
         this.claveSimetrica = claveSimetrica;
     }
-
     public PublicKey getClaveServidor() {
         return claveServidor;
     }
-
     public void setClaveServidor(PublicKey claveServidor) {
         this.claveServidor = claveServidor;
     }
-
     public RSA getPairKeys() {
         return pairKeys;
     }
-
     public void setPairKeys(RSA pairKeys) {
         this.pairKeys = pairKeys;
     }
-
     public static void main(String[] args) {
         try {
 
@@ -64,7 +55,7 @@ public class Cliente {
             //creamos la clase para guardar las claves
             Cliente cliente = new Cliente();
 
-            //enviamos
+            //enviamos clave publica cliente
             DataOutputStream dOut = new DataOutputStream(socket.getOutputStream());
             Encriptacion.enviarClavePublica(cliente.pairKeys.PublicKey.getEncoded(),dOut);
 
@@ -89,9 +80,11 @@ public class Cliente {
             // Hilo para recibir mensajes del servidor
             Thread hiloRecibirMensajes = new Thread(() -> {
                 try {
+                    Cipher desencriptadorSimetrica = Cipher.getInstance("AES");
+                    desencriptadorSimetrica.init(Cipher.DECRYPT_MODE, cliente.claveSimetrica);
                     String llegada;
-                    while ((llegada = lector.readLine()) != null) {
-                            String mensaje = Encriptacion.descifrarMensaje(llegada,desencriptador,publicSignature);
+                    while ((llegada = lector.readLine()) != null) {//esperar a que llegue un mens del servidor
+                            String mensaje = Encriptacion.descifrarMensaje(llegada,desencriptadorSimetrica);
                             System.out.println(mensaje);
                     }
                 } catch (IOException e) {
@@ -107,16 +100,12 @@ public class Cliente {
             // Hilo para enviar mensajes al servidor
             Thread hiloEnviarMensajes = new Thread(() -> {
                 try {
-
-                    Signature privateSignature = Signature.getInstance("SHA256withRSA");
-                    privateSignature.initSign(cliente.pairKeys.PrivateKey);
-
                     String mensajeUsuario;
-                    while ((mensajeUsuario = lectorConsola.readLine()) != null) {
-                        Cipher c = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-                        c.init(Cipher.ENCRYPT_MODE, cliente.claveServidor);
+                    while ((mensajeUsuario = lectorConsola.readLine()) != null) {//espera a leer algo de la consola
+                        Cipher c = Cipher.getInstance("AES");
+                        c.init(Cipher.ENCRYPT_MODE, cliente.claveSimetrica);
 
-                        escritor.println(Encriptacion.encriptarMensaje(c,privateSignature,mensajeUsuario));
+                        escritor.println(Encriptacion.encriptarMensaje(c,mensajeUsuario));//encriptas el mesnaje
 
                         Thread.sleep(TIEMPO_ENTRE_MENSAJES); // Esperar para evitar enviar mensajes muy rápido
                     }
@@ -165,6 +154,4 @@ public class Cliente {
             throw new RuntimeException(e);
         }
     }
-
-
 }

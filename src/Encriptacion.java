@@ -45,26 +45,17 @@ public class Encriptacion {
         PublicKey publicKey2 = keyFactory.generatePublic(publicKeySpec);
         return publicKey2;
     }
-
     public static void enviarClavePublica(byte[] publicKey, DataOutputStream escritor) throws IOException {
         escritor.writeInt(publicKey.length);
         escritor.write(publicKey);
     }
-    public static String descifrarMensaje(String llegada, Cipher c, Signature sig1) throws Exception {
-            String[] mensajeMasFirma = llegada.split(Encriptacion.delimitadorCodificado);
-            String mensaje = new String(c.doFinal(Base64.getDecoder().decode(mensajeMasFirma[0].getBytes())));
-            sig1.update(mensaje.getBytes());
-            if (sig1.verify(Base64.getDecoder().decode(mensajeMasFirma[1].getBytes()))){
-                return mensaje;
-            }else {
-                throw new Exception("modificacion!!");
-            }
+    public static String descifrarMensaje(String llegada, Cipher c) throws Exception {
+            String mensaje = new String(c.doFinal(Base64.getDecoder().decode(llegada.getBytes())));
+            return mensaje;
     }
-    public static String encriptarMensaje(Cipher c, Signature s, String llegada) throws IllegalBlockSizeException, BadPaddingException, SignatureException {
+    public static String encriptarMensaje(Cipher c, String llegada) throws IllegalBlockSizeException, BadPaddingException, SignatureException {
         byte[] mensajeCifrado = c.doFinal(llegada.getBytes());
-        s.update(llegada.getBytes());
-        byte[] firma = s.sign();
-        String encript = new String(Base64.getEncoder().encode(mensajeCifrado)) + Encriptacion.delimitadorCodificado + new String(Base64.getEncoder().encode(firma));
+        String encript = new String(Base64.getEncoder().encode(mensajeCifrado));
         return encript;
     }
 }
