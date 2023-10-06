@@ -2,6 +2,7 @@ import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
+import javax.crypto.spec.SecretKeySpec;
 import java.io.*;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
@@ -14,12 +15,22 @@ import java.util.Base64;
 public class Cliente {
     private static final long TIEMPO_ENTRE_MENSAJES = 15; // 3 segundos de espera para evitar spam
     private RSA pairKeys;
+    private PublicKey claveServidor;
+    private Key claveSimetrica;
 
-    public PublicKey claveServidor;
 
     public Cliente() throws NoSuchPaddingException, IllegalBlockSizeException, NoSuchAlgorithmException, BadPaddingException, IOException, InvalidKeyException {
         this.pairKeys = Encriptacion.generarClaves();
         this.claveServidor = null;
+        this.claveSimetrica = null;
+    }
+
+    public Key getClaveSimetrica() {
+        return claveSimetrica;
+    }
+
+    public void setClaveSimetrica(Key claveSimetrica) {
+        this.claveSimetrica = claveSimetrica;
     }
 
     public PublicKey getClaveServidor() {
@@ -62,22 +73,26 @@ public class Cliente {
             DataInputStream dIn = new DataInputStream(socket.getInputStream());
             cliente.setClaveServidor(Encriptacion.recibirCLavePublica(dIn));
 
+            //recibimos clave simetrica
+            Signature publicSignature = Signature.getInstance("SHA256withRSA");
+            publicSignature.initVerify(cliente.getClaveServidor());
+            Cipher desencriptador = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+            desencriptador.init(Cipher.DECRYPT_MODE, cliente.pairKeys.PrivateKey);
+            String claveSimetrica = lector.readLine();
+            byte[] claveS = Encriptacion.recibirClaveSimetrica(claveSimetrica,publicSignature,desencriptador);
+            Key aeskey = new SecretKeySpec(claveS,"AES");
+            cliente.setClaveSimetrica(aeskey);
+
+
+
 
             // Hilo para recibir mensajes del servidor
             Thread hiloRecibirMensajes = new Thread(() -> {
                 try {
-                    Signature publicSignature = Signature.getInstance("SHA256withRSA");
-                    publicSignature.initVerify(cliente.getClaveServidor());
-                    Cipher desencriptador = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-                    desencriptador.init(Cipher.DECRYPT_MODE, cliente.pairKeys.PrivateKey);
-
-
                     String llegada;
                     while ((llegada = lector.readLine()) != null) {
-
                             String mensaje = Encriptacion.descifrarMensaje(llegada,desencriptador,publicSignature);
                             System.out.println(mensaje);
-
                     }
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -100,7 +115,6 @@ public class Cliente {
                     while ((mensajeUsuario = lectorConsola.readLine()) != null) {
                         Cipher c = Cipher.getInstance("RSA/ECB/PKCS1Padding");
                         c.init(Cipher.ENCRYPT_MODE, cliente.claveServidor);
-                        privateSignature.update(mensajeUsuario.getBytes(StandardCharsets.UTF_8));
 
                         escritor.println(Encriptacion.encriptarMensaje(c,privateSignature,mensajeUsuario));
 
@@ -146,6 +160,8 @@ public class Cliente {
         } catch (BadPaddingException e) {
             throw new RuntimeException(e);
         } catch (InvalidKeyException e) {
+            throw new RuntimeException(e);
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }

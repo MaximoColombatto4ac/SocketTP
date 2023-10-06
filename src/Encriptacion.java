@@ -1,9 +1,5 @@
-import javax.crypto.BadPaddingException;
-import javax.crypto.Cipher;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
+import javax.crypto.*;
 import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.security.spec.EncodedKeySpec;
 import java.security.spec.InvalidKeySpecException;
@@ -18,6 +14,28 @@ public class Encriptacion {
         rsa.genKeyPair(512);
         return rsa;
     }
+    public static SecretKey generarClaveSimetrica() throws NoSuchAlgorithmException {
+        KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
+        keyGenerator.init(256);
+        return keyGenerator.generateKey();
+    }
+    public static String enviarClaveSimetrica(SecretKey key, Cipher c, Signature s) throws IllegalBlockSizeException, BadPaddingException, SignatureException, IOException {
+        byte[] mensajeCifrado = c.doFinal(key.getEncoded());
+        s.update(key.getEncoded());
+        byte[] firma = s.sign();
+        String encript = new String(Base64.getEncoder().encode(mensajeCifrado)) + Encriptacion.delimitadorCodificado + new String(Base64.getEncoder().encode(firma));
+        return encript;
+    }
+    public static byte[] recibirClaveSimetrica(String llegada, Signature sig1, Cipher c) throws Exception {
+        String[] mensajeMasFirma = llegada.split(Encriptacion.delimitadorCodificado);
+        byte[] mensaje = c.doFinal(Base64.getDecoder().decode(mensajeMasFirma[0]));
+        sig1.update(mensaje);
+        if (sig1.verify(Base64.getDecoder().decode(mensajeMasFirma[1]))){
+            return mensaje;
+        }else {
+            throw new Exception("modificacion!!");
+        }
+    }
     public static PublicKey recibirCLavePublica( DataInputStream dIn) throws IOException, NoSuchAlgorithmException, InvalidKeySpecException {
         int length = dIn.readInt();
         byte[] message = new byte[length];
@@ -31,15 +49,6 @@ public class Encriptacion {
     public static void enviarClavePublica(byte[] publicKey, DataOutputStream escritor) throws IOException {
         escritor.writeInt(publicKey.length);
         escritor.write(publicKey);
-    }
-    public static String hashearMensaje(String mensaje) throws Exception {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(mensaje.getBytes(StandardCharsets.UTF_8));
-            return new String(hash, StandardCharsets.UTF_8);
-        } catch (Exception e) {
-            throw new Exception("Error al hashear el mensaje", e);
-        }
     }
     public static String descifrarMensaje(String llegada, Cipher c, Signature sig1) throws Exception {
             String[] mensajeMasFirma = llegada.split(Encriptacion.delimitadorCodificado);
